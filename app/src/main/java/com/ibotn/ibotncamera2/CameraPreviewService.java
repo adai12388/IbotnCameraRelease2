@@ -19,12 +19,10 @@ import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.PreviewCallback;
-import android.hardware.camera2.CameraManager;
 import android.media.AudioManager;
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
 import android.media.ToneGenerator;
-import android.net.Uri;
 import android.opengl.GLES11Ext;
 import android.os.AsyncTask;
 import android.os.Binder;
@@ -37,7 +35,6 @@ import android.provider.MediaStore.MediaColumns;
 import android.provider.MediaStore.Video;
 import android.text.TextUtils;
 import android.view.Surface;
-import android.view.TextureView;
 import android.view.WindowManager;
 import android.widget.Toast;
 
@@ -195,9 +192,10 @@ public class CameraPreviewService extends Service
     private final MediaSaveService.OnMediaSavedListener mOnVideoSavedListener =
             new MediaSaveService.OnMediaSavedListener() {
                 @Override
-                public void onMediaSaved(Uri uri) {
-                    if (uri != null) {
-                        videoHandler.onVideoRecordingSaved(mCurrentVideoFilename.replace(".tmp",""));
+                public void onMediaSaved(String filePath) {
+                    if (filePath != null) {
+                        videoHandler.onVideoRecordingSaved(mCurrentVideoFilename.replace(".tmp", ""));
+                        updateStorageSpaceAndHint();
                     } else {
                         deleteVideoFile(mCurrentVideoFilename);
                         mCurrentVideoFilename = null;
@@ -256,7 +254,7 @@ public class CameraPreviewService extends Service
     }
 
     public interface EncodeJpegHandler {
-        public void onEncodeDone(byte[] yuv);
+        void onEncodeDone(byte[] yuv);
     }
 
     public interface TakePictureHandler {
@@ -405,8 +403,8 @@ public class CameraPreviewService extends Service
     }
 
     private void deleteVideoFile(String fileName) {
-        if(TextUtils.isEmpty(fileName))
-            return ;
+        if (TextUtils.isEmpty(fileName))
+            return;
         LogUtils.v(TAG, "Deleting video " + fileName);
         File f = new File(fileName);
         if (f.exists() && !f.delete()) {
@@ -419,8 +417,7 @@ public class CameraPreviewService extends Service
 
 
     public class BaseServiceBinder extends Binder {
-        public boolean isRecording()
-        {
+        public boolean isRecording() {
             return mMediaRecorderRecording;
         }
 
@@ -525,8 +522,8 @@ public class CameraPreviewService extends Service
             CameraPreviewService.this.takePicture(new JpegPictureCallback(takePicHandler), size);
         }
 
-        public void startVideoRecording(boolean withAudio,VideoRecordingHandler myVideoRecodingHandler) {
-            if(myVideoRecodingHandler != null)
+        public void startVideoRecording(boolean withAudio, VideoRecordingHandler myVideoRecodingHandler) {
+            if (myVideoRecodingHandler != null)
                 videoHandler = myVideoRecodingHandler;
             mTimeBetweenTimeLapseFrameCaptureMs = 0;
             mCaptureTimeLapse = false;
@@ -534,8 +531,6 @@ public class CameraPreviewService extends Service
             CameraPreviewService.this.startVideoRecording(withAudio);
             handler.sendEmptyMessageDelayed(MESSAGE_STOP_VIDEO_RECORDING, 20000);
         }
-
-
 
 
         public void stopVideoRecording() {
@@ -615,6 +610,7 @@ public class CameraPreviewService extends Service
         }
     }
 
+
     private final class JpegPictureCallback
             implements PictureCallback {
         //Location mLocation;
@@ -624,6 +620,15 @@ public class CameraPreviewService extends Service
             mNamedImages.nameNewImage(System.currentTimeMillis());
             mTakePictureHandler = takePicHandler;
         }
+
+        private MediaSaveService.OnMediaSavedListener listener = new MediaSaveService.OnMediaSavedListener() {
+            @Override
+            public void onMediaSaved(String filePath) {
+                if (mTakePictureHandler != null) {
+                    mTakePictureHandler.onPictureDone(filePath);
+                }
+            }
+        };
 
         @Override
         public void onPictureTaken(final byte[] jpegData, Camera camera) {
@@ -639,12 +644,12 @@ public class CameraPreviewService extends Service
             String title = (name == null) ? null : name.title;
             long date = (name == null) ? -1 : name.date;
 
-            LogUtils.d(TAG,"yison onPictureTaken title = "+title + " date = "+date);
+            LogUtils.d(TAG, "yison onPictureTaken title = " + title + " date = " + date);
 
             if (mMediaSaveService != null) {
                 mMediaSaveService.addImage(
                         jpegData, title, date, null, width, height,
-                        orientation, null, mContentResolver);
+                        orientation, listener, mContentResolver);
             }
             if (mCapturingCaller.equals(COMMAND_CALLER)) {
                 stopPreview();
@@ -658,9 +663,7 @@ public class CameraPreviewService extends Service
                 //触发该service所实现的PreviewCallback预览回调
                 startPreviewOnCameraThread(requestSize);
             }
-            if (mTakePictureHandler != null) {
-                mTakePictureHandler.onPictureDone(title);
-            }
+
 
             updateStorageSpaceAndHint();
             //Message msg = handler.obtainMessage(MESSAGE_REPEAT_PICTURE, mTakePictureHandler);
@@ -733,7 +736,7 @@ public class CameraPreviewService extends Service
             LogUtils.d(TAG, "Camera orientation: " + info.orientation +
                     " .Device orientation: " + getDeviceOrientation());
             camera.setErrorCallback(cameraErrorCallback);
-            updateStorageSpaceAndHint();
+//            updateStorageSpaceAndHint();
             startPreviewOnCameraThread(size);
 
             return true;
@@ -1070,7 +1073,7 @@ public class CameraPreviewService extends Service
 
     private boolean stopRecording() {
         LogUtils.d(TAG, "stopRecording");
-        if(handler.hasMessages(MESSAGE_STOP_VIDEO_RECORDING))
+        if (handler.hasMessages(MESSAGE_STOP_VIDEO_RECORDING))
             handler.removeMessages(MESSAGE_STOP_VIDEO_RECORDING);
         boolean result = false;
         if (mMediaRecorderRecording && mMediaRecorder != null) {
@@ -1078,7 +1081,7 @@ public class CameraPreviewService extends Service
             try {
                 mMediaRecorder.stop();
                 mMediaRecorderRecording = false;
-                updateStorageSpaceAndHint();
+//                updateStorageSpaceAndHint();
                 saveVideo();
                 releaseMediaRecorder();
                 if (videoHandler != null) {
@@ -1087,7 +1090,7 @@ public class CameraPreviewService extends Service
                 result = true;
             } catch (Exception e) {
                 e.printStackTrace();
-                LogUtils.e(TAG, "stop fail "+e);
+                LogUtils.e(TAG, "stop fail " + e);
                 deleteVideoFile(mCurrentVideoFilename);
                 releaseMediaRecorder();
                 mCurrentVideoFilename = null;
@@ -1152,9 +1155,9 @@ public class CameraPreviewService extends Service
 
     private ToneGenerator tone;
     //快门按下的时候onShutter()被回调
-    private Camera.ShutterCallback shutterCallback = new Camera.ShutterCallback(){
+    private Camera.ShutterCallback shutterCallback = new Camera.ShutterCallback() {
         public void onShutter() {
-            if(tone == null)
+            if (tone == null)
                 //发出提示用户的声音
                 tone = new ToneGenerator(AudioManager.STREAM_MUSIC,
                         ToneGenerator.MAX_VOLUME);
@@ -1221,6 +1224,7 @@ public class CameraPreviewService extends Service
             new Thread() {
                 public void run() {
                     final byte[] yuvdata = data;
+                    LogUtils.d(TAG, "yuvdata = " + yuvdata);
                     //long currindex = index;
                     try {
                         //LogUtils.d(TAG, "onPreviewFrame thread index=" + currindex + " length=" + data.length);
@@ -1228,6 +1232,7 @@ public class CameraPreviewService extends Service
                         ByteArrayOutputStream out = new ByteArrayOutputStream();
                         yuv.compressToJpeg(new Rect(0, 0, requestSize.getWidth(), requestSize.getHeight()), 100, out);
                         byte[] imageBytes = out.toByteArray();
+                        LogUtils.d(TAG, "imageBytes " + imageBytes);
                         Storage.writeFile(photoFile, imageBytes);
                         if (mEncodeJpegHandler != null) {
                             mEncodeJpegHandler.onEncodeDone(yuvdata);

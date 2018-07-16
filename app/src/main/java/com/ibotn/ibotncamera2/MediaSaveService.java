@@ -16,9 +16,11 @@
 
 package com.ibotn.ibotncamera2;
 
+import android.app.ActivityManager;
 import android.app.Service;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.BitmapFactory;
@@ -31,9 +33,13 @@ import android.provider.MediaStore;
 import android.provider.MediaStore.Video;
 import android.util.Log;
 
+import com.ibotn.ibotncamera2.utils.LogUtils;
 import com.ibotn.ibotncamera2.utils.Storage;
 
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -58,7 +64,7 @@ public class MediaSaveService extends Service {
     }
 
     public interface OnMediaSavedListener {
-        public void onMediaSaved(Uri uri);
+        public void onMediaSaved(String filePath);
     }
 
     class LocalBinder extends Binder {
@@ -100,7 +106,16 @@ public class MediaSaveService extends Service {
     public void addImage(final byte[] data, String title, long date, Location loc,
                          int width, int height, int orientation,
                          OnMediaSavedListener l, ContentResolver resolver) {
+
+
         if (isQueueFull()) {
+            ActivityManager activityManager=(ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+            ActivityManager.MemoryInfo memInfo=new ActivityManager.MemoryInfo();
+            activityManager.getMemoryInfo(memInfo);
+            Log.v(TAG, "availMem:"+memInfo.availMem/1024+" kb");
+            Log.v(TAG, "threshold:"+memInfo.threshold/1024+" kb");//low memory threshold
+            Log.v(TAG, "totalMem:"+memInfo.totalMem/1024+" kb");
+            Log.v(TAG, "lowMemory:"+memInfo.lowMemory);  //if current is in low memory
             Log.e(TAG, "Cannot add image when the queue is full");
             return;
         }
@@ -109,9 +124,7 @@ public class MediaSaveService extends Service {
                 width, height, orientation, resolver, l);
 
         mMemoryUse += data.length;
-        if (isQueueFull()) {
-            onQueueFull();
-        }
+        LogUtils.e(TAG,"mMemoryUse "+mMemoryUse);
 //        t.execute();
         t.executeOnExecutor(threadPool);
     }
@@ -151,7 +164,7 @@ public class MediaSaveService extends Service {
         if (mListener != null) mListener.onQueueStatus(false);
     }
 
-    private class ImageSaveTask extends AsyncTask<Void, Void, Uri> {
+    private class ImageSaveTask extends AsyncTask<Void, Void, String> {
         private byte[] data;
         private String title;
         private long date;
@@ -181,8 +194,8 @@ public class MediaSaveService extends Service {
         }
 
         @Override
-        protected Uri doInBackground(Void... v) {
-            Uri uri =null;
+        protected String doInBackground(Void... v) {
+            String filePath =null;
             if (width == 0 || height == 0) {
                 // Decode bounds
                 BitmapFactory.Options options = new BitmapFactory.Options();
@@ -191,25 +204,27 @@ public class MediaSaveService extends Service {
                 width = options.outWidth;
                 height = options.outHeight;
             }
-            uri =Storage.addImage(
+            Uri uri = Storage.addImage(
                     resolver, title, date, loc, orientation, data, width, height);
             //上传oneDrive
 //            if (uri!=null){
 //                sendBroadcastUploadPhoto(uri);
 //            }
-            return uri;
+            if(uri != null)
+                filePath = title;
+            return filePath;
         }
 
         @Override
-        protected void onPostExecute(Uri uri) {
-            if (listener != null) listener.onMediaSaved(uri);
+        protected void onPostExecute(String filePath) {
+            if (listener != null) listener.onMediaSaved(filePath);
             boolean previouslyFull = isQueueFull();
             mMemoryUse -= data.length;
             if (isQueueFull() != previouslyFull) onQueueAvailable();
         }
     }
 
-    private class VideoSaveTask extends AsyncTask<Void, Void, Uri> {
+    private class VideoSaveTask extends AsyncTask<Void, Void, String> {
         private String path;
         private long duration;
         private ContentValues values;
@@ -226,13 +241,13 @@ public class MediaSaveService extends Service {
         }
 
         @Override
-        protected Uri doInBackground(Void... v) {
+        protected String doInBackground(Void... v) {
             values.put(Video.Media.SIZE, new File(path).length());
             values.put(Video.Media.DURATION, duration);
-            Uri uri = null;
+            String filePath = null;
             try {
                 Uri videoTable = Uri.parse(VIDEO_BASE_URI);
-                uri = resolver.insert(videoTable, values);
+                Uri uri = resolver.insert(videoTable, values);
 
                 // Rename the video file to the final name. This avoids other
                 // apps reading incomplete data.  We need to do it after we are
@@ -244,20 +259,21 @@ public class MediaSaveService extends Service {
                 }
 
                 resolver.update(uri, values, null, null);
+                filePath = path;
             } catch (Exception e) {
                 // We failed to insert into the database. This can happen if
                 // the SD card is unmounted.
                 Log.e(TAG, "failed to add video to media store", e);
-                uri = null;
+                filePath = null;
             } finally {
-                Log.v(TAG, "Current video URI: " + uri);
+                Log.v(TAG, "Current video URI: " + filePath);
             }
-            return uri;
+            return filePath;
         }
 
         @Override
-        protected void onPostExecute(Uri uri) {
-            if (listener != null) listener.onMediaSaved(uri);
+        protected void onPostExecute(String filePath) {
+            if (listener != null) listener.onMediaSaved(filePath);
         }
     }
     public String getDataColumn(Uri uri, String selection, String[] selectionArgs) {

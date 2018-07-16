@@ -402,7 +402,7 @@ public class MainActivity extends FullScreenActivity implements TextureView.Surf
     public boolean preventMultipleRunPictrue() {
 
         long now = SystemClock.elapsedRealtime();
-        if (now - mLastCallTimePictrue <= 200) {
+        if (now - mLastCallTimePictrue <= 1000) {
             return true;
         }
         mLastCallTimePictrue = now;
