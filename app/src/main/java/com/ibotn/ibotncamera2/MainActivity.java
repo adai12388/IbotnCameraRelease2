@@ -23,11 +23,16 @@ import android.widget.Chronometer;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.ibotn.ibotncamera2.beans.MessageEvent;
 import com.ibotn.ibotncamera2.common.ConstControl;
 import com.ibotn.ibotncamera2.receiver.OperationReceiver;
 import com.ibotn.ibotncamera2.utils.DialogUtils;
 import com.ibotn.ibotncamera2.utils.ImageCacheUtil;
 import com.ibotn.ibotncamera2.utils.LogUtils;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import java.io.File;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,19 +51,21 @@ public class MainActivity extends FullScreenActivity implements TextureView.Surf
     private CameraPreviewService.BaseServiceBinder mPreviewServcieBinder;
     private Chronometer chronometer;
     private ImageView img_back;
-    private int type = -1;
+    //连拍，还是普通拍照
+    private int take_photo_type = -1;
     private boolean withAudio = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        LogUtils.e(TAG, "onCreate");
+        LogUtils.e(TAG, "yison onCreate");
         CameraPreviewService.activitys.add(this);
         setContentView(R.layout.activity_main);
         initViews();
         initListenters();
-        type = getIntent().getIntExtra(OperationReceiver.EXTRA_CAPTURE_TYPE, -1);
+        take_photo_type = getIntent().getIntExtra(OperationReceiver.EXTRA_CAPTURE_TYPE, -1);
         withAudio = getIntent().getBooleanExtra(OperationReceiver.EXTRA_WITH_AUDIO, false);
+        EventBus.getDefault().register(this);
     }
 
     /**
@@ -198,14 +205,27 @@ public class MainActivity extends FullScreenActivity implements TextureView.Surf
         if (withAudio)
             countHandler.sendEmptyMessageDelayed(MSG_START_VIDEIO, 1000);
         else
-            dealPhoto(type);
+            dealPhoto(take_photo_type);
+        img_dcim.setVisibility(View.GONE);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        LogUtils.e(TAG, "onDestroy");
+        LogUtils.e(TAG, "yison onDestroy");
         CameraPreviewService.activitys.remove(this);
+        EventBus.getDefault().unregister(this);
+    }
+
+
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onStopRecordEvent(MessageEvent messageEvent)
+    {
+        LogUtils.e(TAG,"yison onStopRecordEvent messageEvent = "+messageEvent);
+        if(countHandler != null && countHandler.hasMessages(MSG_START_VIDEIO))
+            countHandler.removeMessages(MSG_START_VIDEIO);
+        startAndendRecording();
     }
 
     private void initViews() {
@@ -426,7 +446,6 @@ public class MainActivity extends FullScreenActivity implements TextureView.Surf
         }
         if (mPreviewServcieBinder != null) {
             if (mPreviewServcieBinder.isRecording()) {
-                isVideoing = false;
                 mPreviewServcieBinder.stopVideoRecording();
 
             } else {
@@ -478,6 +497,10 @@ public class MainActivity extends FullScreenActivity implements TextureView.Surf
         intent.setDataAndType(Uri.parse("file://" + mCurrentFilePath), mType + "/*");
         startActivity(intent);*/
 //        "com.infomax.ibotncloudplayer", "com.infomax.ibotncloudplayer.activity.Activity_album_video"
+        if (isVideoing) {
+            Toast.makeText(this, getResources().getString(R.string.error_pl_stop_videio), Toast.LENGTH_SHORT).show();
+            return;
+        }
         Intent intent = new Intent();
         intent.setClassName("com.infomax.ibotncloudplayer", "com.infomax.ibotncloudplayer.activity.Activity_album_video");
         intent.putExtra("type",mType);

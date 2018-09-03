@@ -20,10 +20,17 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
+import android.text.TextUtils;
+import android.view.TextureView;
 
 import com.ibotn.ibotncamera2.CameraPreviewService;
+import com.ibotn.ibotncamera2.MainActivity;
+import com.ibotn.ibotncamera2.beans.MessageEvent;
+import com.ibotn.ibotncamera2.common.ConstControl;
 import com.ibotn.ibotncamera2.services.SendCommandService;
 import com.ibotn.ibotncamera2.utils.LogUtils;
+
+import org.greenrobot.eventbus.EventBus;
 
 /**
  * OperationReceiver
@@ -33,12 +40,9 @@ import com.ibotn.ibotncamera2.utils.LogUtils;
 public class OperationReceiver extends BroadcastReceiver {
 
     private final String TAG = OperationReceiver.class.getSimpleName();
-    private Handler mHandler = new Handler();
-    private final int DELAYED_MS = 100;
-    private static final String EXTRA_IS_BACKGROUND = "is_background";
     public static final String EXTRA_WITH_AUDIO = "with_audio";
     /**
-     * 拍照类型;0拍照，1抓拍，2连拍；
+     * 拍照类型;0拍照，2连拍；
      */
     public static final String EXTRA_CAPTURE_TYPE = "capture_type";
     public static final String EXTRA_FUNCTION_TYPE = "function_type";
@@ -47,7 +51,6 @@ public class OperationReceiver extends BroadcastReceiver {
     public static final String FUNCTION_TYPE_TAKE_PICTURE = "take_picture";
     public static final String FUNCTION_TYPE_START_VIDEO_RECORDING = "start_video_recording";
     public static final String FUNCTION_TYPE_STOP_VIDEO_RECORDING = "stop_video_recording";
-    public static final String FUNCTION_TYPE_STOP_PREVIEW = "stop_preview";
 
     /**
      * 该字段作为广播action。<br/>
@@ -56,30 +59,35 @@ public class OperationReceiver extends BroadcastReceiver {
      * 新增extra字段"capture_type",//拍照类型;0拍照，1抓拍，2连拍；<br/>
      */
     public static final String ACTION_CAMERA_OPERATION = "com.ibotn.ibotncamera.ACTION_CAMERA_OPERATION";
-    public static final String ACTION_ACK_NOTIFY = "com.ibotn.ibotncamera.ACTION_ACK_NOTIFY";
 
     @Override
     public void onReceive(final Context context, final Intent intent) {
 
         String action = intent.getAction();
-        LogUtils.d(TAG, TAG + ">>>onReceive()>>action:" + action);
-		/*if (Intent.ACTION_BOOT_COMPLETED.equals(action)) {
-			if (!CameraPreviewService.isReady())
-				context.startService(new Intent(Intent.ACTION_MAIN).setClass(context, CameraPreviewService.class));
-		}else */
+        LogUtils.d(TAG, TAG + "yison >>>onReceive()>>action:" + action);
         if (ACTION_CAMERA_OPERATION.equals(action)) {
+            //是否语音唤起
             boolean withAudio = intent.getBooleanExtra(EXTRA_WITH_AUDIO, true);
             String functionType = intent.getStringExtra(EXTRA_FUNCTION_TYPE);
-            int captureType = intent.getIntExtra(EXTRA_CAPTURE_TYPE, 0);
-            int width = intent.getIntExtra(EXTRA_WIDTH, -1);
-            int height = intent.getIntExtra(EXTRA_HEIGHT, -1);
-            Intent sIntent = new Intent(context, SendCommandService.class);
-            sIntent.putExtra(EXTRA_FUNCTION_TYPE, functionType);
-            sIntent.putExtra(EXTRA_WITH_AUDIO, withAudio);
-            sIntent.putExtra(EXTRA_CAPTURE_TYPE, captureType);
-            sIntent.putExtra(EXTRA_WIDTH, width);
-            sIntent.putExtra(EXTRA_HEIGHT, height);
-            context.startService(sIntent);
+            //语音停止录像
+            if(TextUtils.equals(functionType,FUNCTION_TYPE_STOP_VIDEO_RECORDING))
+            {
+                LogUtils.e(TAG,"yison receive FUNCTION_TYPE_STOP_VIDEO_RECORDING");
+                EventBus.getDefault().post(new MessageEvent(1));
+                ConstControl.setExpressionAnimationState(context, ConstControl.EXPRESSION_STOP_VR);
+                //语音开启录像
+            }else {
+                int captureType = intent.getIntExtra(EXTRA_CAPTURE_TYPE, 0);
+                int width = intent.getIntExtra(EXTRA_WIDTH, -1);
+                int height = intent.getIntExtra(EXTRA_HEIGHT, -1);
+                Intent sIntent = new Intent(context, SendCommandService.class);
+                sIntent.putExtra(EXTRA_FUNCTION_TYPE, functionType);
+                sIntent.putExtra(EXTRA_WITH_AUDIO, withAudio);
+                sIntent.putExtra(EXTRA_CAPTURE_TYPE, captureType);
+                sIntent.putExtra(EXTRA_WIDTH, width);
+                sIntent.putExtra(EXTRA_HEIGHT, height);
+                context.startService(sIntent);
+            }
         }
     }
 }

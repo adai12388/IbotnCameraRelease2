@@ -16,6 +16,8 @@ import com.ibotn.ibotncamera2.common.ConstControl;
 import com.ibotn.ibotncamera2.receiver.OperationReceiver;
 import com.ibotn.ibotncamera2.utils.LogUtils;
 
+import org.greenrobot.eventbus.EventBus;
+
 import java.util.List;
 //import com.ibotn.ibotnlauncher.expression.ExpressionAnimationService;
 
@@ -62,35 +64,18 @@ public class SendCommandService extends Service {
 
 
                     } else if (OperationReceiver.FUNCTION_TYPE_START_VIDEO_RECORDING.equals(command)) {
-
                         ConstControl.setExpressionAnimationState(context, ConstControl.EXPRESSION_START_VR);
                         Intent previewIntent = new Intent(getApplicationContext(), MainActivity.class);
+                        previewIntent.putExtra(OperationReceiver.EXTRA_FUNCTION_TYPE,OperationReceiver.FUNCTION_TYPE_START_VIDEO_RECORDING);
                         previewIntent.putExtra(OperationReceiver.EXTRA_WITH_AUDIO,withAudio);
                         previewIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(previewIntent);
                         stopSelf();
-                        LogUtils.d(TAG, TAG + ">>onStartCommand()>>>Preview Recording");//CameraVideoActivity
+                        LogUtils.d(TAG, TAG + ">>onStartCommand()>>>Preview Recording");//开启录像
 
-                    } /*else if (OperationReceiver.FUNCTION_TYPE_STOP_VIDEO_RECORDING.equals(command)) {
-                        ServiceConnection connection = new ServiceConnection() {
-                            @Override
-                            public void onServiceConnected(ComponentName name, IBinder service) {
-                                CameraPreviewService.BaseServiceBinder binder = (CameraPreviewService.BaseServiceBinder) service;
-                                binder.stopVideoRecording();
-                                unbindService(this);
-                                stopSelf();
-                                // For Expression Animation
-                                ConstControl.setExpressionAnimationState(context, ConstControl.EXPRESSION_STOP_VR);
-                            }
-
-                            @Override
-                            public void onServiceDisconnected(ComponentName name) {
-
-                            }
-                        };
-
-                        bindPreviewService(connection);
-                    } else if (OperationReceiver.FUNCTION_TYPE_STOP_PREVIEW.equals(command)) {
+                    }
+                    /*
+                    else if (OperationReceiver.FUNCTION_TYPE_STOP_PREVIEW.equals(command)) {
                         ServiceConnection connection = new ServiceConnection() {
                             @Override
                             public void onServiceConnected(ComponentName className, IBinder b) {

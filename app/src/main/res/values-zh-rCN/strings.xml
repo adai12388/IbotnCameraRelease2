@@ -7,11 +7,11 @@
     <string name="preparing_sd">“准备SD卡......”</string>
     <string name="access_sd_fail">“无法访问SD卡。”</string>
     <string name="spaceIsLow_content">“您的SD卡空间不足。更改质量设置或删除一些图像或其他文件。”</string>
-    <string name="video_call">“通话中心”</string>
-    <string name="face_call">“人脸识别”</string>
-    <string name="camera_call">“安全中心”</string>
+    <string name="video_call">“其他应用”</string>
+    <string name="face_call">“其他应用”</string>
+    <string name="camera_call">“其他应用”</string>
     <string name="please_try_later">“请稍后再试”</string>
-    <string name="camera_opened">打开相机</string>
+    <string name="camera_opened">打开了相机</string>
     <string name="face_recognize">人脸识别</string>
     <string name="video_record">"视频记录"</string>
     <string name="connect_camera_error">无法启动相机！</string>
