@@ -29,6 +29,7 @@ import com.ibotn.ibotncamera2.receiver.OperationReceiver;
 import com.ibotn.ibotncamera2.utils.DialogUtils;
 import com.ibotn.ibotncamera2.utils.ImageCacheUtil;
 import com.ibotn.ibotncamera2.utils.LogUtils;
+import com.ibotn.ibotncamera2.utils.Storage;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -305,7 +306,7 @@ public class MainActivity extends FullScreenActivity implements TextureView.Surf
                 @Override
                 public void onPictureDone(String title) {
                     LogUtils.d(TAG, "yison onPictureDone title " + title + " Thread = " + Thread.currentThread().getName());
-                    String filePath = Environment.getExternalStorageDirectory() + File.separator + "DCIM" + File.separator + "Camera" + File.separator + title + ".jpg";
+                    String filePath = Storage.DIRECTORY + File.separator + title + Storage.JPEG_POSTFIX;
                     File file = new File(filePath);
                     if (file.exists()) {
                         LogUtils.d(TAG, "yison setbitmap start filePath = " + filePath);

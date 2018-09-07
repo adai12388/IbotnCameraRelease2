@@ -43,7 +43,7 @@ public class Storage {
      * 2. 新的方式，以用户的优盘存储优先，如果优盘不存在，就使用之前的内置sd卡 /storage/sdcard/DCIM/Camera/ <br/>
      */
     public static final String DCIM = DevicePath.getInstance(IbotnCamera2App.getInstance()).isExistUsbStoragePath(IbotnCamera2App.getInstance()) ?
-            DevicePath.getInstance(IbotnCamera2App.getInstance()).getUsbStoragePath(IbotnCamera2App.getInstance()) + File.separator + "DCIM" :
+            DevicePath.getInstance(IbotnCamera2App.getInstance()).getUsbStoragePath(IbotnCamera2App.getInstance()) + File.separator + Environment.DIRECTORY_DCIM :
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).toString();
 
     /**
