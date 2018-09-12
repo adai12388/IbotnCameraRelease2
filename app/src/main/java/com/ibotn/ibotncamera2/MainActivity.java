@@ -23,11 +23,13 @@ import android.widget.Chronometer;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.ibotn.ibotncamera2.beans.LearnTrajectoryBean;
 import com.ibotn.ibotncamera2.beans.MessageEvent;
 import com.ibotn.ibotncamera2.common.ConstControl;
 import com.ibotn.ibotncamera2.receiver.OperationReceiver;
 import com.ibotn.ibotncamera2.utils.DialogUtils;
 import com.ibotn.ibotncamera2.utils.ImageCacheUtil;
+import com.ibotn.ibotncamera2.utils.LearnTrajectoryUtil;
 import com.ibotn.ibotncamera2.utils.LogUtils;
 import com.ibotn.ibotncamera2.utils.Storage;
 
@@ -67,7 +69,18 @@ public class MainActivity extends FullScreenActivity implements TextureView.Surf
         take_photo_type = getIntent().getIntExtra(OperationReceiver.EXTRA_CAPTURE_TYPE, -1);
         withAudio = getIntent().getBooleanExtra(OperationReceiver.EXTRA_WITH_AUDIO, false);
         EventBus.getDefault().register(this);
+
+        //开始记录轨迹
+        trajectoryHolder.startLearn(new LearnTrajectoryBean(System.currentTimeMillis(),
+                "相机",
+                LearnTrajectoryUtil.Constant.TYPE_TAKE_PHOTO));
+        trajectoryHolder.setTimeSpace(1000);
     }
+
+    /**
+     * 记录轨迹的holder
+     */
+    private LearnTrajectoryUtil.LearnTrajectoryHolder trajectoryHolder = new LearnTrajectoryUtil.LearnTrajectoryHolder();
 
     /**
      * 连拍张数
@@ -216,6 +229,10 @@ public class MainActivity extends FullScreenActivity implements TextureView.Surf
         LogUtils.e(TAG, "yison onDestroy");
         CameraPreviewService.activitys.remove(this);
         EventBus.getDefault().unregister(this);
+
+        //结束记录轨迹
+        trajectoryHolder.endLearn();
+        LearnTrajectoryUtil.sendBro(this,trajectoryHolder);
     }
 
 
