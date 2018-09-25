@@ -298,10 +298,7 @@ public class CameraPreviewService extends Service
         super.onCreate();
         LogUtils.d(TAG, "onCreate");
 
-        Intent intent = new Intent();
-        ComponentName component = new ComponentName("com.ibotn.ibotncameraservice", "com.ibotn.ibotncameraservice.IbotnCameraService");
-        intent.setComponent(component);
-        bindService(intent, conn, Service.BIND_AUTO_CREATE);
+        bindIbotnCameraService();
 
         mInstance = this;
         mNamedImages = new NamedImages();
@@ -312,6 +309,14 @@ public class CameraPreviewService extends Service
         updateStorageSpaceAndHint();
 
 
+    }
+
+    private void bindIbotnCameraService() {
+        LogUtils.e(TAG, "yison bind ibotncameraservice");
+        Intent intent = new Intent();
+        ComponentName component = new ComponentName("com.ibotn.ibotncameraservice", "com.ibotn.ibotncameraservice.IbotnCameraService");
+        intent.setComponent(component);
+        bindService(intent, conn, Service.BIND_AUTO_CREATE);
     }
 
     @Override
@@ -423,27 +428,6 @@ public class CameraPreviewService extends Service
 
         public boolean canUseCamera(int yourLevel) {
 
-            int i = 0;
-            while (ibotnCameraService == null && i < 5) {
-
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-                if (ibotnCameraService != null)
-                    break;
-
-                Intent intent2 = new Intent();
-                ComponentName component = new ComponentName("com.ibotn.ibotncameraservice", "com.ibotn.ibotncameraservice.IbotnCameraService");
-                intent2.setComponent(component);
-                bindService(intent2, conn, Service.BIND_AUTO_CREATE);
-
-                i++;
-                LogUtils.e(TAG, "setupCamera rebind ibotncameraservice...times = " + i);
-            }
-
             if (ibotnCameraService == null) {
                 LogUtils.e(TAG, "setupCamera bind ibotncameraservice failed!!!");
                 return false;
@@ -459,30 +443,10 @@ public class CameraPreviewService extends Service
         }
 
         public int getLevel() {
-            int i = 0;
-            while (ibotnCameraService == null && i < 5) {
-
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-                if (ibotnCameraService != null)
-                    break;
-
-                Intent intent2 = new Intent();
-                ComponentName component = new ComponentName("com.ibotn.ibotncameraservice", "com.ibotn.ibotncameraservice.IbotnCameraService");
-                intent2.setComponent(component);
-                bindService(intent2, conn, Service.BIND_AUTO_CREATE);
-
-                i++;
-                LogUtils.e(TAG, "setupCamera rebind ibotncameraservice...times = " + i);
-            }
 
             if (ibotnCameraService == null) {
                 LogUtils.e(TAG, "setupCamera bind ibotncameraservice failed!!!");
-                return 99;
+                return OCCUPANCY_UNKOWN;
             } else
                 LogUtils.d(TAG, "setupCamera bind ibotncameraservice success!!!");
 
@@ -490,7 +454,7 @@ public class CameraPreviewService extends Service
                 return ibotnCameraService.getLevel();
             } catch (RemoteException e) {
                 e.printStackTrace();
-                return 99;
+                return OCCUPANCY_UNKOWN;
             }
         }
 
@@ -829,21 +793,6 @@ public class CameraPreviewService extends Service
         stopRecording();
         handler.removeMessages(MESSAGE_REPEAT_PICTURE);
 
-        while (ibotnCameraService == null) {
-            LogUtils.e(TAG, "setLevel rebind ibotncameraservice...start");
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            Intent intent2 = new Intent();
-            ComponentName component = new ComponentName("com.ibotn.ibotncameraservice", "com.ibotn.ibotncameraservice.IbotnCameraService");
-            intent2.setComponent(component);
-            bindService(intent2, conn, Service.BIND_AUTO_CREATE);
-            LogUtils.e(TAG, "setLevel rebind ibotncameraservice...");
-        }
-        LogUtils.e(TAG, "setLevel rebind ibotncameraservice...end");
 
         //恢复摄像头占用级别
         if (ibotnCameraService != null)
@@ -880,20 +829,37 @@ public class CameraPreviewService extends Service
 
         }
     };
+
+    private IBinder.DeathRecipient recipient = new IBinder.DeathRecipient() {
+        @Override
+        public void binderDied() {
+            LogUtils.e(TAG, "yison binderDied "+Thread.currentThread().getId());
+        }
+    };
     private ServiceConnection conn = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
+            try {
+                service.linkToDeath(recipient, 0);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+
             ibotnCameraService = IIbotnCameraService.Stub.asInterface(service);
             if (ibotnCameraService == null)
                 LogUtils.e(TAG, "onServiceConnected ibotnCameraService init failed !!! name = " + name);
             else
                 LogUtils.e(TAG, "onServiceConnected ibotnCameraService init success name = " + name);
+
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             LogUtils.e(TAG, "onServiceDisconnected name = " + name);
             ibotnCameraService = null;
+            Toast.makeText(CameraPreviewService.this, "IbotnCameraService died", Toast.LENGTH_SHORT).show();
+
+            bindIbotnCameraService();
         }
     };
 

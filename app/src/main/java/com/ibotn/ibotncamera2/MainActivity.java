@@ -161,7 +161,7 @@ public class MainActivity extends FullScreenActivity implements TextureView.Surf
         if (captureType == 0) {
             startCountDown();
         } else if (captureType == 1) {
-            countHandler.sendEmptyMessageDelayed(MSG_COUNT_DOWN, 1000);
+//            countHandler.sendEmptyMessageDelayed(MSG_COUNT_DOWN, 1000);
 
         } else if (captureType == 2) {
             countHandler.sendEmptyMessageDelayed(MSG_CONTINUOUS_SHOOTING, 1000);
